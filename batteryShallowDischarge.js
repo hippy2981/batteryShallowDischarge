@@ -45,9 +45,7 @@ function init(){
 
 // updated event
 device.battery.on('updated', function (status) {
-    if (status.testid) consolelog('test#' + status.testid);
-    consolelog('status: ' + 'isCharging=' + status.isCharging + 
-        ', status.percentage=' + status.percentage);
+    statusLog(status);
     // notify every 5% only and avoid hitting local storage every %
     if (status.percentage % 5 === 0) {
         var state = getState();
@@ -117,14 +115,18 @@ function updateState(status, state) {
             consolelog('resetCycle()');
         }
     }
-    if (status.percentage === upperLimit) {
-        state.shallow = 'upper';
-        setState(state);
-        consolelog('shallow = upper');
-    } else if (status.percentage === lowerLimit) {
-        state.shallow = 'lower';
-        setState(state);
-        consolelog('shallow = lower');
+    if (status.percentage >= upperLimit) {
+        if (state.shallow !== 'upper') {
+            state.shallow = 'upper';
+            setState(state);
+            consolelog('shallow = upper');
+        }
+    } else if (status.percentage <= lowerLimit) {
+        if (state.shallow !== 'lower') {
+            state.shallow = 'lower';
+            setState(state);
+            consolelog('shallow = lower');
+        }
     }
     consolelog('state (after): ' + stateLog());
 }
@@ -154,12 +156,33 @@ function resetCycle(force, date) {
     force = force === undefined;
     date = date || new Date();
     if (force || !getState()) {
-        var state = { cycleMonth: date.getMonth(), shallow: 'lower' };
+        var state = { cycleMonth: date.getMonth(), shallow: getShallow() };
         setState(state);
         consolelog('resetCycle. state: ' + stateLog());
     } else {
         consolelog('existing state: ' + stateLog());
     }
+}
+
+// Determine shallow value on battery status.
+function getShallow(status) {
+    status = status || device.battery.status;
+    var uplo;
+    if (status.percentage >= upperLimit) {
+        uplo = 'upper';
+    } else if (status.percentage <= lowerLimit) {
+        uplo = 'lower';
+    } else {
+        // lower-upper range
+        if (status.isCharging) {
+            uplo = 'lower';
+        } else {
+            uplo = 'upper';
+        }
+    }
+    statusLog(status);
+    consolelog('getShallow: ' + uplo);
+    return uplo;
 }
 
 // Get state from local storage.
@@ -187,6 +210,15 @@ function resetLastNotified() {
 function stateLog(state) {
     state = state || getState();
     return JSON.stringify(state);
+}
+
+// Get status for logging.
+function statusLog(status) {
+    if (status.testid)
+        consolelog('test#' + status.testid);
+    consolelog('status: ' +
+        'isCharging=' + status.isCharging + 
+        ', percentage=' + status.percentage);
 }
 
 //}/////////////// functions /////////////////
@@ -259,15 +291,23 @@ device.battery.emit('stoppedCharging', { testid:30, percentage: 35, isCharging: 
 setState({ cycleMonth: new Date().getMonth(), shallow: 'upper' });
 device.battery.emit('updated', { testid:31, percentage: 75, isCharging: true });//notify to unplug
 device.battery.emit('updated', { testid:32, percentage: 95, isCharging: true });//notify to unplug
-device.battery.emit('updated', { testid:33, percentage: 40, isCharging: true });//notify to unplug
+device.battery.emit('updated', { testid:33, percentage: 40, isCharging: true });
 consolelog('shallow expected lower. is: ' + getState().shallow);
 
 // in cycle: notify to plug if prev 40 (shallow = lower)
 setState({ cycleMonth: new Date().getMonth(), shallow: 'lower' });
 device.battery.emit('updated', { testid:34, percentage: 45, isCharging: false });//notify to plug in
 device.battery.emit('updated', { testid:35, percentage: 35, isCharging: false });//notify to plug in
-device.battery.emit('updated', { testid:36, percentage: 80, isCharging: false });//notify to plug in
+device.battery.emit('updated', { testid:36, percentage: 80, isCharging: false });
 consolelog('shallow expected upper. is: ' + getState().shallow);
+
+// getShallow tests
+getShallow({ testid:37, percentage: 60, isCharging: true });//lower
+getShallow({ testid:38, percentage: 60, isCharging: false });//upper
+getShallow({ testid:39, percentage: 30, isCharging: true });//lower
+getShallow({ testid:40, percentage: 30, isCharging: false });//lower
+getShallow({ testid:41, percentage: 90, isCharging: true });//upper
+getShallow({ testid:42, percentage: 90, isCharging: false });//upper
 
 // revert to old state
 setState(oldstate);
