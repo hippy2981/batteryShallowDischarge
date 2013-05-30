@@ -23,6 +23,8 @@ var chargedLimit = 100; //should be 5x
 var notifyInterval = 10;
 // last notification time
 var lastNotified;
+// schedule name when charged
+var chargedScheduleName = 'bsd.charged';
 // key(s) used for local storage
 var stateKey = 'bsd.cycle';
 // last percentage value
@@ -77,6 +79,8 @@ device.battery.on('startedCharging', function (status) {
 });
 device.battery.on('stoppedCharging', function (status) {
     consolelog('stoppedCharging---->');
+    // unschedule charged notify
+    unscheduleChargedNotify();
     // notify to plug
     checkToNotify(status, 'stoppedCharging');
     consolelog('<----stoppedCharging');
@@ -106,6 +110,7 @@ function checkToNotify(status, event, state) {
         !status.isCharging && status.percentage === dischargedLimit;
     if (isCharged) {
         text = 'Unplug.';
+        scheduleChargedNotify();
     } else if (isDischarged) {
         text = 'Plug in.';
     } else if (!isInCycle && isChargingEvent) {
@@ -155,6 +160,28 @@ function updateState(status, state) {
         }
     }
     consolelog('state (after): ' + stateLog());
+}
+
+// Schedule charged notify.
+function scheduleChargedNotify() {
+    device.scheduler.setTimer({
+        name: chargedScheduleName, 
+        time: 0,
+        interval: notifyInterval*1000,
+        exact: false
+    }, function () {
+        vibrate();
+    });
+}
+
+// Unschedule charged notify.
+function unscheduleChargedNotify() {
+    device.scheduler.removeTimer(chargedScheduleName);
+}
+
+// Vibrate.
+function vibrate() {
+    device.audio.vibrate(2 * 1000);
 }
 
 // Notify.
