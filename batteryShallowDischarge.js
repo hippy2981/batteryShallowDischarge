@@ -25,6 +25,8 @@ var notifyInterval = 10;
 var lastNotified;
 // key(s) used for local storage
 var stateKey = 'bsd.cycle';
+// last percentage value
+var lastPercentage;
 
 //}/////////////// settings /////////////////
 
@@ -45,12 +47,17 @@ function init(){
 
 // updated event
 device.battery.on('updated', function (status) {
-    statusLog(status);
-    // notify every 5% only and avoid hitting local storage every %
-    if (status.percentage % 5 === 0) {
-        var state = getState();
-        checkToNotify(status, 'updated', state);
-        updateState(status, state);
+    // updated event fired 1+ times so check last percentage
+    if (lastPercentage !== status.percentage) {
+        statusLog(status);
+        consolelog('lastPercentage (before): ' + lastPercentage);
+        lastPercentage = status.percentage;
+        // notify every 5% only and avoid hitting local storage every %
+        if (status.percentage % 5 === 0) {
+            var state = getState();
+            checkToNotify(status, 'updated', state);
+            updateState(status, state);
+        }
     }
 });
 
