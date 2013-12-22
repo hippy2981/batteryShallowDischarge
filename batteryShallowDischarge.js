@@ -50,10 +50,15 @@ device.battery.on('updated', function (status) {
     // updated event fired 1+ times so check last percentage
     if (lastPercentage !== status.percentage) {
         statusLog(status);
+        // notify every 5% only and avoid hitting local storage every %
+        var is5x = status.percentage % 5 === 0;
+        // notify if % jumps (happens sometimes when charging)
+        var overlaps5x = 
+            lastPercentage && // lastPercentage is undefined after init
+            isOverlapping5x(lastPercentage, status.percentage);
         consolelog('lastPercentage (before): ' + lastPercentage);
         lastPercentage = status.percentage;
-        // notify every 5% only and avoid hitting local storage every %
-        if (status.percentage % 5 === 0) {
+        if (is5x || overlaps5x) {
             var state = getState();
             checkToNotify(status, 'updated', state);
             updateState(status, state);
@@ -75,10 +80,19 @@ device.battery.on('stoppedCharging', function (status) {
 
 //{/////////////// functions /////////////////
 
+function isOverlapping5x(a, b) {
+    if (b > a) {
+        return isOverlapping5x(b, a);
+    }
+    var value5x = div(a, 5) * 5;
+    return b < value5x && value5x < a;
+}
+
 // Notify user to either fully charge/discharge if not doing so.
 function checkToNotify(status, event, state) {
     state = state || getState();
     var isChargingEvent = event.indexOf('Charging') >= 0;
+    consolelog('event: ' + event);
     var text = null;
     var isInCycle = isWithinCycle(state);
     var isCharged = 
@@ -228,6 +242,16 @@ function statusLog(status) {
         ', percentage=' + status.percentage);
 }
 
+// Get int div.
+function div(a, b) {
+    return (a / b) | 0;
+}
+
+// Get abs of n.
+function abs(a) {
+    return (a > 0 ? a : -a);
+}
+
 //}/////////////// functions /////////////////
 
 consolelog('####Completed rule: batteryShallowDischarge####');
@@ -315,6 +339,20 @@ getShallow({ testid:39, percentage: 30, isCharging: true });//lower
 getShallow({ testid:40, percentage: 30, isCharging: false });//lower
 getShallow({ testid:41, percentage: 90, isCharging: true });//upper
 getShallow({ testid:42, percentage: 90, isCharging: false });//upper
+
+// % jump tests
+setState({ cycleMonth: new Date().getMonth(), shallow: 'lower' }); lastPercentage = 75;
+device.battery.emit('updated', { testid:43, percentage: 79, isCharging: true });
+consolelog('shallow expected lower. is: ' + getState().shallow);
+setState({ cycleMonth: new Date().getMonth(), shallow: 'lower' }); lastPercentage = 75;
+device.battery.emit('updated', { testid:43, percentage: 80, isCharging: true });
+consolelog('shallow expected upper. is: ' + getState().shallow);
+setState({ cycleMonth: new Date().getMonth(), shallow: 'lower' }); lastPercentage = 75;
+device.battery.emit('updated', { testid:44, percentage: 81, isCharging: true });
+consolelog('shallow expected upper. is: ' + getState().shallow);
+setState({ cycleMonth: new Date().getMonth(), shallow: 'lower' }); lastPercentage = 75;
+device.battery.emit('updated', { testid:45, percentage: 86, isCharging: true });
+consolelog('shallow expected upper. is: ' + getState().shallow);
 
 // revert to old state
 setState(oldstate);
