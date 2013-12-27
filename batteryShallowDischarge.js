@@ -49,6 +49,8 @@ function init(){
 device.battery.on('updated', function (status) {
     // updated event fired 1+ times so check last percentage
     if (lastPercentage !== status.percentage) {
+        consolelog('updated---->');
+        consolelog('last%: ' + lastPercentage);
         statusLog(status);
         // notify every 5% only and avoid hitting local storage every %
         var is5x = status.percentage % 5 === 0;
@@ -56,24 +58,28 @@ device.battery.on('updated', function (status) {
         var overlaps5x = 
             lastPercentage && // lastPercentage is undefined after init
             isOverlapping5x(lastPercentage, status.percentage);
-        consolelog('lastPercentage (before): ' + lastPercentage);
         lastPercentage = status.percentage;
         if (is5x || overlaps5x) {
             var state = getState();
             checkToNotify(status, 'updated', state);
             updateState(status, state);
         }
+        consolelog('<----updated');
     }
 });
 
 // *Charging events
 device.battery.on('startedCharging', function (status) {
+    consolelog('startedCharging---->');
     // notify to unplug
     checkToNotify(status, 'startedCharging');
+    consolelog('<----startedCharging');
 });
 device.battery.on('stoppedCharging', function (status) {
+    consolelog('stoppedCharging---->');
     // notify to plug
     checkToNotify(status, 'stoppedCharging');
+    consolelog('<----stoppedCharging');
 });
 
 //}/////////////// events /////////////////
@@ -92,7 +98,6 @@ function isOverlapping5x(a, b) {
 function checkToNotify(status, event, state) {
     state = state || getState();
     var isChargingEvent = event.indexOf('Charging') >= 0;
-    consolelog('event: ' + event);
     var text = null;
     var isInCycle = isWithinCycle(state);
     var isCharged = 
@@ -168,7 +173,7 @@ function notify(text, status) {
 function isWithinCycle(state) {
     var month = new Date().getMonth();
     var result = month === state.cycleMonth;
-    consolelog('isWithinCycle: ' + result + ', month: ' + month);
+    consolelog((result ? 'in' : 'out') + ' cycle' + ', month: ' + month);
     return result;
 }
 
@@ -238,8 +243,8 @@ function statusLog(status) {
     if (status.testid)
         consolelog('test#' + status.testid);
     consolelog('status: ' +
-        'isCharging=' + status.isCharging + 
-        ', percentage=' + status.percentage);
+        status.percentage + '% ' +
+        (status.isCharging ? '+' : '-'));
 }
 
 // Get int div.
