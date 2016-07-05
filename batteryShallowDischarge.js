@@ -91,11 +91,27 @@ device.battery.on('stoppedCharging', function (status) {
 //{/////////////// functions /////////////////
 
 function isOverlapping5x(a, b) {
-    if (b > a) {
-        return isOverlapping5x(b, a);
+    var i;
+    if (a < b) {
+        for (i = a+1; i <= b; i++) {
+            if (i %5 === 0) {
+                return true;
+            }
+        }
     }
-    var value5x = div(a, 5) * 5;
-    return b < value5x && value5x < a;
+    else if (a > b) {
+        for (i = a-1; i >= b; i--) {
+            if (i %5 === 0) {
+                return true;
+            }
+        }
+    }
+    if (a == b) {
+        if (b %5 === 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // Notify user to either fully charge/discharge if not doing so.
